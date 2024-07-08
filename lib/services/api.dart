@@ -11,6 +11,20 @@ import 'package:tb_pmp/services/shared_preferences.dart';
 class ApiService {
   static const String baseUrl = 'https://backend-pmp.unand.dev';
 
+
+
+  Future<Map<String, dynamic>> fetchExchangeRates() async {
+    final response = await http.get(Uri.parse(
+        'https://api.freecurrencyapi.com/v1/latest?apikey=fca_live_jCUYYawDOWwJbcVRbd3WyIdzPzJdL4v1J4B5bX4g&currencies=EUR,USD,JPY&base_currency=IDR'));
+
+    if (response.statusCode == 200) {
+      return json.decode(response.body)['data'];
+    } else {
+      throw Exception('Failed to load exchange rates');
+    }
+  }
+
+  
   Future<Login?> login(String email, String password) async {
     try {
       final response = await http.post(

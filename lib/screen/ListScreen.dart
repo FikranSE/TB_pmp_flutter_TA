@@ -21,12 +21,14 @@ class _ListScreenState extends State<ListScreen> {
   late Future<List<Theses>> _thesesList;
   late Future<DateTime> _currentDate;
   late Future<Profile?> _profileFuture; // Future to fetch profile data
+  late Future<Map<String, dynamic>> _exchangeRatesFuture; // Future to fetch exchange rates
 
   @override
   void initState() {
     super.initState();
     _fetchThesesAndCurrentDate();
     _fetchProfile(); // Fetch profile data when screen initializes
+    _fetchExchangeRates(); // Fetch exchange rates when screen initializes
   }
 
   void _fetchThesesAndCurrentDate() {
@@ -36,6 +38,10 @@ class _ListScreenState extends State<ListScreen> {
 
   void _fetchProfile() {
     _profileFuture = ApiService().fetchProfile(widget.authToken);
+  }
+
+  void _fetchExchangeRates() {
+    _exchangeRatesFuture = ApiService().fetchExchangeRates();
   }
 
   void updateThesesList() {
@@ -194,90 +200,152 @@ class _ListScreenState extends State<ListScreen> {
   }
 
   Widget _buildListView(bool isWideScreen) {
-    return FutureBuilder<List<Theses>>(
-      future: _thesesList,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        } else if (snapshot.hasError) {
-          return Center(child: Text('Error: ${snapshot.error}'));
-        } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-          return const Center(child: Text('No data available'));
-        } else {
-          return ListView.builder(
-            itemCount: snapshot.data!.length,
-            itemBuilder: (context, index) {
-              final thesis = snapshot.data![index];
-              return Card(
-                margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                color: const Color(0xFF49454F),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+    return Column(
+      children: [
+        FutureBuilder<Map<String, dynamic>>(
+          future: _exchangeRatesFuture,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Padding(
+                padding: EdgeInsets.all(8.0),
+                child: CircularProgressIndicator(),
+              );
+            } else if (snapshot.hasError) {
+              return Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Text('Error: ${snapshot.error}'),
+              );
+            } else if (snapshot.hasData) {
+              final rates = snapshot.data!;
+              return Container(
+                padding: const EdgeInsets.all(16.0),
+                color: Colors.grey[200],
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
-                    Padding(
-                      padding: const EdgeInsets.all(20),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            thesis.title,
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          Text(
-                            'Tanggal Pendaftaran: ${thesis.startAt != null ? DateFormat('dd MMMM yyyy').format(thesis.startAt!) : DateFormat('dd MMMM yyyy').format(DateTime.now())}',
-                            style: const TextStyle(
-                              fontSize: 16,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    if (isWideScreen)
-                      Container(
-                        width: double.infinity,
-                        color: const Color.fromARGB(255, 199, 198, 198),
-                        padding: const EdgeInsets.all(8.0),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          children: [
-                            TextButton(
-                              style: TextButton.styleFrom(
-                                backgroundColor: Colors.white,
-                              ),
-                              onPressed: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => Detail(
-                                      authToken: widget.authToken,
-                                      thesisId: thesis.id,
-                                    ),
-                                  ),
-                                );
-                              },
-                              child: const Text(
-                                'Detail',
-                                style: TextStyle(
-                                  color: Colors.black,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+                    _buildExchangeRateCard('IDR to USD', rates['USD']),
+                    _buildExchangeRateCard('IDR to EUR', rates['EUR']),
+                    _buildExchangeRateCard('IDR to JPY', rates['JPY']),
                   ],
                 ),
               );
+            } else {
+              return const Padding(
+                padding: EdgeInsets.all(8.0),
+                child: Text('No data available'),
+              );
+            }
+          },
+        ),
+        Expanded(
+          child: FutureBuilder<List<Theses>>(
+            future: _thesesList,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              } else if (snapshot.hasError) {
+                return Center(child: Text('Error: ${snapshot.error}'));
+              } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                return const Center(child: Text('No data available'));
+              } else {
+                return ListView.builder(
+                  itemCount: snapshot.data!.length,
+                  itemBuilder: (context, index) {
+                    final thesis = snapshot.data![index];
+                    return Card(
+                      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                      color: const Color(0xFF49454F),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.all(20),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  thesis.title,
+                                  style: const TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                                const SizedBox(height: 10),
+                                Text(
+                                  'Tanggal Pendaftaran: ${thesis.startAt != null ? DateFormat('dd MMMM yyyy').format(thesis.startAt!) : DateFormat('dd MMMM yyyy').format(DateTime.now())}',
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (isWideScreen)
+                            Container(
+                              width: double.infinity,
+                              color: const Color.fromARGB(255, 199, 198, 198),
+                              padding: const EdgeInsets.all(8.0),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.end,
+                                children: [
+                                  TextButton(
+                                    style: TextButton.styleFrom(
+                                      backgroundColor: Colors.white,
+                                    ),
+                                    onPressed: () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) => Detail(
+                                            authToken: widget.authToken,
+                                            thesisId: thesis.id,
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                    child: const Text(
+                                      'Detail',
+                                      style: TextStyle(
+                                        color: Colors.black,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                        ],
+                      ),
+                    );
+                  },
+                );
+              }
             },
-          );
-        }
-      },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildExchangeRateCard(String currency, double rate) {
+    return Column(
+      children: [
+        Text(
+          currency,
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          rate.toStringAsFixed(8),  // Using 8 decimal places for better precision
+          style: const TextStyle(
+            fontSize: 16,
+          ),
+        ),
+      ],
     );
   }
 }
